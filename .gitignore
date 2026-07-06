@@ -1,0 +1,27 @@
+# ============================================================
+#  Whitelist .gitignore  —  "ignore everything, keep only code"
+# ------------------------------------------------------------
+#  Line 1 ignores EVERYTHING. The `!` lines below re-include
+#  the file types we DO want to track. Because the bulk data
+#  and tool outputs are never re-included, they can never be
+#  committed by accident — even brand-new output dirs.
+#
+#  All code in this project lives in the repo root, so we only
+#  re-include root-level *.py / *.sh / *.md. Files with those
+#  extensions *inside* ignored directories stay ignored.
+# ============================================================
+
+# 1) Ignore everything by default
+*
+
+# 2) Re-include the code and docs we want under version control
+!.gitignore
+!*.py
+!*.sh
+!*.md
+
+# ---
+# If you ever add a code subdirectory (e.g. src/), you must also
+# un-ignore the directory before git will descend into it, e.g.:
+#   !src/
+#   !src/**/*.py
