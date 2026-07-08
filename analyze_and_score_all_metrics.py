@@ -63,7 +63,7 @@ df_filter = df_conf[
 print(f"After physical filter: {len(df_filter)}")
 
 # added dssp filter of .75
-df_filter = df_filter[df_filter["helix_score"]>.75]
+df_filter = df_filter[df_filter["helix_score"]>.70]
 print(f"After helicity filter: {len(df_filter)}")
 
 

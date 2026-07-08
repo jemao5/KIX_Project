@@ -95,6 +95,9 @@ Merges all metric layers **inner join on `name`**, then:
 `interface_interface_hbonds > 1`, `interface_delta_unsat_hbonds ≤ 5`, `n_K ≤ 3`, `n_M ≤ 3`,
 `hit_num ≥ 1`, `count > 1`, `protein_iptm > 0.85`.
 
+**Helicity (DSSP) filter:** applied after the physical filter — `helix_score > 0.70`
+(the DSSP `chain_b_helix_fraction` from stage 8). Tune this threshold in the script directly.
+
 Then **dedup by `Sequence`** (keep highest `protein_iptm`), **split by `face_call`**
 (`cmyb` / `mll`), and rank each face independently by `priority_score` — a percentile-rank blend:
 `0.2·count + 0.2·hit_num + 0.1·(1−unsat_hbonds) + 0.2·protein_iptm + 0.2·helix_score`.
