@@ -62,6 +62,11 @@ df_filter = df_conf[
 ].copy()
 print(f"After physical filter: {len(df_filter)}")
 
+# added dssp filter of .75
+df_filter = df_filter[df_filter["helix_score"]>.75]
+print(f"After helicity filter: {len(df_filter)}")
+
+
 # --- 6. DEDUP by sequence (keep highest protein_iptm) ---
 df_filter = df_filter.sort_values("protein_iptm", ascending=False).drop_duplicates(subset=["Sequence"], keep="first")
 print(f"After dedup: {len(df_filter)}")
