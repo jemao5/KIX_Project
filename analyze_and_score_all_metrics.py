@@ -62,7 +62,7 @@ df_filter = df_conf[
 ].copy()
 print(f"After physical filter: {len(df_filter)}")
 
-# added dssp filter of .75
+# DSSP helicity filter: keep chain-B helix fraction > 0.70
 df_filter = df_filter[df_filter["helix_score"]>.70]
 print(f"After helicity filter: {len(df_filter)}")
 
