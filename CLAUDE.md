@@ -68,6 +68,7 @@ SLURM account: `torch_pr_149_chemistry`.
 | 8 | DSSP helicity (`chain_b_helix_fraction`) | `check_helix_dssp.py`, `check_helix_dssp_skip_first2.py` | `run_dssp.sh` | dssp_env |
 | 9 | Structural face assignment (`face_call`) | `full_library_face_determination.py` | `run_full_library_face_determination.sh` | dssp_env |
 | 10 | Merge + filter + rank | `analyze_and_score_all_metrics.py` | — (run directly) | general |
+| 11 | Align top candidates to `2agh` for viewing | `align_structures.py` | — (run directly) | Schrödinger |
 
 Counting helpers: `get_enrichment_count.py`, `get_aggregate_counts.py` produce the `count`
 (enrichment) column consumed in scoring.
@@ -106,6 +107,28 @@ Outputs `cmyb_candidates.csv` and `mll_candidates.csv` in `full_library_all_metr
 (~1.3k candidates each). Preview columns: `name, Sequence, count, hit_num, helix_score,
 interface_delta_unsat_hbonds, interface_dG, protein_iptm, priority_score`.
 
+## Structure alignment for viewing (`align_structures.py`)
+
+Post-scoring visualization prep, run directly with Schrödinger's Python (no `.sh` runner).
+Takes the top `n_candidates` (=20) rows from each of `mll_candidates.csv` / `cmyb_candidates.csv`,
+indexes every Boltz `*_model_0.cif` under `boltz_out_full/`, and structurally aligns the matched
+cofolded structures onto the `2agh_model1.cif` reference via `structalign2.align_many`.
+
+Outputs to `aligned_structures/`:
+- `alignment_data.csv` — one row per candidate: `name, rmsd, score`.
+- `<name>.pdb` — each aligned structure, **written as PDB (not CIF)**.
+
+**HID/HIE/HIP → HIS fix:** `standardize_his_names()` rewrites Schrödinger's protonation-state
+histidine names (`HID`/`HIE`/`HIP`) back to standard `HIS ` (space-padded `pdbres`) before writing.
+Without this, ChimeraX doesn't recognize the residues and breaks the ribbon. Writing PDB (rather
+than CIF) plus this rename is what makes the files open cleanly in ChimeraX.
+
+This is **Schrödinger-specific**: the source Boltz CIF has plain `HIS`, but Schrödinger's
+`StructureReader`/`StructureWriter` assign protonation-state-specific histidine names when a
+structure is round-tripped through its toolkit. So the rename is only needed because these
+structures pass through Schrödinger's Python here — any stage that writes structures via
+Schrödinger (not just this one) can reintroduce `HID`/`HIE`/`HIP`.
+
 ## Key directories
 
 - `full_library_all_metrics/` — per-metric CSVs + final candidate lists (the payoff).
@@ -116,6 +139,8 @@ interface_delta_unsat_hbonds, interface_dG, protein_iptm, priority_score`.
   (`run_dssp.sh`, `run_full_library_face_determination.sh`). ⚠️ `analyze_and_score` reads from
   `full_library_all_metrics/`, so outputs must be copied/moved there before final scoring.
 - `boltz_out_full/` (chunked, `chunk_0000…`), `boltz_outputs/`, `bindcraft_out/`, `bindcraft_relaxed/` — raw tool outputs.
+- `aligned_structures/` — stage-11 outputs: top-20-per-face candidates aligned to `2agh`
+  (`<name>.pdb`, HIS-normalized for ChimeraX) plus `alignment_data.csv` (rmsd/score).
 - `yaml_chunks/`, `schrodinger_calc_hbond_chunks/` — split inputs/outputs for SLURM array jobs.
 - `tsv_outputs/` — `full_library_out.tsv` is the master library (~31k rows).
 - `logs/`, `*.out` — SLURM job logs (named `*_<jobid>.out`).
