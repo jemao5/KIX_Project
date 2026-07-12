@@ -143,7 +143,38 @@ Schrödinger (not just this one) can reintroduce `HID`/`HIE`/`HIP`.
   (`<name>.pdb`, HIS-normalized for ChimeraX) plus `alignment_data.csv` (rmsd/score).
 - `yaml_chunks/`, `schrodinger_calc_hbond_chunks/` — split inputs/outputs for SLURM array jobs.
 - `tsv_outputs/` — `full_library_out.tsv` is the master library (~31k rows).
+- `boltz_reference_structures/` — the two **native-control** binders run through the pipeline
+  alongside the library (see below).
 - `logs/`, `*.out` — SLURM job logs (named `*_<jobid>.out`).
+
+## Native controls (`boltz_reference_structures/`)
+
+Two native binders are screened as controls: `kix_peptide_reference_cmyb`
+(`KEKRIKELELLLMSTENELKGQQAL`) and `kix_peptide_reference_mll`
+(`SDDGNILPSDIMDFVLKNTPSMQALGESPES`). `name` = the Boltz parent folder (no `Full_Library_Hit_N`
+convention here). Everything for this run is self-contained under `boltz_reference_structures/`
+so the full-library files are never touched:
+
+- Boltz/BindCraft/DSSP for the controls: `boltz_results_*/`, `bindcraft_reference_out/`,
+  `dssp_reference_data.csv`, `boltz_reference_data.csv`.
+- Stage-7 for the controls was run **in-session, no sbatch** (2 structures): `cif2pdb.py` →
+  `run-schrodinger-2025.4.bash run prepwizard` (same flags as `run_schrodinger_prepwizard.sh`) →
+  `run-schrodinger-2025.4.bash run python3 schrodinger_calc_hbond.py reference_hits.dat
+  reference_interactions.pkl --start 1 --end 2`. No `merge_*` step (single chunk).
+- `hbond_hit_num_reference.py` (project root) is a paths-scoped copy of `hbond_hit_num.py`:
+  reads `reference_interactions.pkl` + `reference_face_assignment.tsv`, writes
+  `reference_interactions_clean.csv`. `reference_face_assignment.tsv` is **hand-written**
+  (cmyb→cmyb, mll→mll) — it *asserts* the face from the label rather than running stage 9.
+- Comparison outputs: `cmyb_candidates_with_control.csv` / `mll_candidates_with_control.csv`
+  — that face's filter survivors + its native control appended (`is_control` flag), full 32-col
+  metric set. Built by reproducing the `analyze_and_score` merge/filter, then appending the
+  control rows (`count`/`priority_score` blank — library-population quantities, N/A for natives).
+
+**Finding:** both natives out-score their surviving pools on binding metrics (c-Myb `helix 0.96`,
+`dG −51.4`; MLL `dG −61.3`) but each fails one *library-design* filter — c-Myb on `n_K ≤ 3`
+(it has 4 lysines), MLL on `helix_score > 0.70` (only 31% helical; its native motif is a short
+helix + turns + polyproline, not a clean helix). Setting aside `count > 1` (N/A), those two
+clauses are the sole disqualifiers.
 
 ## Conventions & gotchas
 
