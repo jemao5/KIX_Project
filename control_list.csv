@@ -1,0 +1,25 @@
+name,sequence_display,boltz_sequence,length,face,label,kd_or_ki_uM,measurement_type,ncaa_swaps,source,already_run
+WT_MLL,Ac-DCGNILPSDIMDFVLKNTP-NH2,DCGNILPSDIMDFVLKNTP,19,mll,positive,3,Ki,none,Rooklin 2017 JACS Table 1; Thesis Table 2.1 p53,yes
+MLL3,Ac-SDIC*DFVLKNYP-NH2,SDIMDFVLKNYP,12,mll,positive,58,Ki,M4->Bcs,Rooklin 2017 JACS Table 1; Thesis Table 2.1 p53; Table 2.3 p70,no
+MLL4,Ac-SDIC*DFILKNYP-NH2,SDIMDFILKNYP,12,mll,positive,32,Ki,M4->Bcs,Rooklin 2017 JACS Table 1; Thesis Table 2.1 p53; Table 2.3 p70,no
+MLL6,Ac-SDIC*DF*ILKNYP-OH,SDIMDFILKNYP,12,mll,positive,22,Ki,M4->Bcs; F6->2mF,Rooklin 2017 JACS Table 1; Thesis Table 2.1 p53; Table 2.3 p70,no
+HBS-PA-G,XSDG*(Bcs)D(2meF)ILKNYP-NH2,SDGMDFILKNYP,12,mll,positive,28,Ki,M4->Bcs; F6->2mF,Thesis Table 3.1 p97; Modell 2022 JACS SI Table S1 (HBS 0),no
+HBS-Bcs_to_C,XSDG*(C)D(2meF)ILKNYP-NH2,SDGCDFILKNYP,12,mll,positive,25,Ki,F6->2mF,Thesis Table 3.1 p97,no
+HBS-W,XSDG*(Bcs)D(2meF)ILKNYPW-NH2,SDGMDFILKNYPW,13,mll,positive,13,Ki,M4->Bcs; F6->2mF,Thesis Table 3.1 p97; Modell 2022 JACS SI Table S1 (HBS I),no
+HBS_II,XSDG*(CyHex)D(2meF)ILKN(CyPent)(C-IAA)W,SDGFDFILKNFEW,13,mll,positive,0.48,Kd,F4->CyHex; F6->2mF; F11->CyPent; E12->C-IAA,Modell 2022 JACS Fig 5 + SI Table S2 p5; Thesis 3.3.D p114,no
+HBS_III,XSDG*(CyHex)D(2meF)ILKNYPW,SDGFDFILKNYPW,13,mll,positive,17,Kd,F4->CyHex; F6->2mF,Modell 2022 JACS SI Table S2 p5; Thesis 3.3.D p114,no
+HBS_IV,XSDG*(Bcs)D(2meF)ILKN(CyPent)PW,SDGMDFILKNFPW,13,mll,positive,13,Kd,M4->Bcs; F6->2mF; F11->CyPent,Modell 2022 JACS SI Table S2 p5; Thesis 3.3.D p114,no
+HBS_V,XSDG*(Bcs)D(2meF)ILKNY(C-IAA)W,SDGMDFILKNYEW,13,mll,positive,21,Kd,M4->Bcs; F6->2mF; E12->C-IAA,Modell 2022 JACS SI Table S2 p5; Thesis 3.3.D p114,no
+HBS_VI,XSDG*(CyHex)D(2meF)ILKNY(C-IAA)W,SDGFDFILKNYEW,13,mll,positive,7.4,Kd,F4->CyHex; F6->2mF; E12->C-IAA,Modell 2022 JACS SI Table S2 p5; Thesis 3.3.D p114,no
+MLL1,Ac-SDIMDFVLKNTP-NH2,SDIMDFVLKNTP,12,mll,negative,1000,Ki,none,Rooklin 2017 JACS Table 1; Thesis Table 2.1 p53,no
+MLL2,Ac-SDIC*DFVLKNTP-NH2,SDIMDFVLKNTP,12,mll,negative,500,Ki,M4->Bcs,Rooklin 2017 JACS Table 1; Thesis Table 2.1 p53; Table 2.3 p70,no
+MLL6_CstarA,Ac-SDIADF*ILKNYP-OH,SDIADFILKNYP,12,mll,negative,9999,Ki,F6->2mF,Rooklin 2017 JACS Table 2 p3; Thesis Table 2.3 p70,no
+MLL6_FstarA,Ac-SDIC*DAILKNYP-OH,SDIMDAILKNYP,12,mll,negative,500,Ki,M4->Bcs,Rooklin 2017 JACS Table 2 p3; Thesis Table 2.3 p70,no
+MLL6_IA,Ac-SDIC*DF*ALKNYP-OH,SDIMDFALKNYP,12,mll,negative,500,Ki,M4->Bcs; F6->2mF,Rooklin 2017 JACS Table 2 p3; Thesis Table 2.3 p70,no
+MLL6_YA,Ac-SDIC*DF*ILKNAP-OH,SDIMDFILKNAP,12,mll,negative,9999,Ki,M4->Bcs; F6->2mF,Rooklin 2017 JACS Table 2 p3; Thesis Table 2.3 p70,no
+HBS-22-A,ZSDA*(Bcs)D(2meF)ILKNYP-NH2,SDAMDFILKNYP,12,mll,negative,115,Ki,M4->Bcs; F6->2mF,Thesis Table 3.1 p97,no
+HBS-22-Aba,ZSD(Aba)*(Bcs)D(2meF)ILKNYP-NH2,SDAMDFILKNYP,12,mll,negative,180,Ki,A3->Aba; M4->Bcs; F6->2mF,Thesis Table 3.1 p97,no
+HBS-22-nLeu,ZSD(nLeu)*(Bcs)D(2meF)ILKNYP-NH2,SDLMDFILKNYP,12,mll,negative,180,Ki,L3->nLeu; M4->Bcs; F6->2mF,Thesis Table 3.1 p97,no
+HBS-PA-A,XSDA*(Bcs)D(2meF)ILKNYP-NH2,SDAMDFILKNYP,12,mll,negative,180,Ki,M4->Bcs; F6->2mF,Thesis Table 3.1 p97,no
+HBS-22-G,ZSDG*(Bcs)D(2meF)ILKNYP-NH2,SDGMDFILKNYP,12,mll,negative,90,Ki,M4->Bcs; F6->2mF,Thesis Table 3.1 p97,no
+cMyb_native,KEKRIKELELLLMSTENELKGQQAL,KEKRIKELELLLMSTENELKGQQAL,24,cmyb,positive,1.9,Kd,none,Joy 2021 JACS SI Table S2 p16; 2AGH chain A,yes

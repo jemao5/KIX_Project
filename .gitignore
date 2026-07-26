@@ -25,3 +25,17 @@
 # un-ignore the directory before git will descend into it, e.g.:
 #   !src/
 #   !src/**/*.py
+
+# ------------------------------------------------------------
+#  Intentionally force-added exceptions (git add -f)
+# ------------------------------------------------------------
+#  These are small, hand-curated INPUTS, not tool output, and
+#  would be costly to reconstruct. They are already tracked, so
+#  the rules above no longer apply to them; this note just
+#  explains why .csv/.params files appear in the repo:
+#
+#    control_list.csv                      benchmark set + measured Kd/Ki
+#    control_run/ncaa_smiles.csv           the 7 confirmed ncAA SMILES
+#    control_run/rosetta_params/CIA.params derived S-carboxymethyl-cysteine
+#
+#  Anything else under control_run/ is bulk output and stays ignored.

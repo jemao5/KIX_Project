@@ -1,0 +1,8 @@
+ncaa_name,smiles,parent_resname,parent_aa,position,three_letter_code,source,notes,rosetta_status
+Bcs,CN[C@@H](CSCc1ccccc1)C(C)=O,MET,M,4,BCS,user-confirmed,S-benzyl-L-cysteine; stand-in M is a thioether. BCS is also the real PDB CCD code.,rosetta-builtin (BCS)
+C-IAA,CN[C@@H](CSCC(=O)O)C(C)=O,GLU,E,12,CIA,user-confirmed,S-carboxymethyl-L-cysteine (iodoacetic ACID form; acidic - consistent with the Glu stand-in).,CUSTOM PARAMS NEEDED
+2mF,CN[C@@H](Cc1ccccc1C)C(C)=O,PHE,F,6,M2F,user-confirmed,2-methyl-L-phenylalanine; ortho position confirmed by user.,local rotlib-free copy (M2F.params)
+CyHex,CN[C@@H](CC1CCCCC1)C(C)=O,PHE,F,4,CHX,drafted-from-abbreviation,L-cyclohexylalanine.,local rotlib-free copy (CHX.params)
+CyPent,CN[C@@H](CC1CCCC1)C(C)=O,PHE,F,11,CY5,drafted-from-abbreviation,L-cyclopentylalanine.,local rotlib-free copy (CY5.params)
+Aba,CN[C@@H](CC)C(C)=O,ALA,A,3,ABU,drafted-from-abbreviation,L-2-aminobutyric acid. ABA is also the real PDB CCD code.,local rotlib-free copy (ABU.params)
+nLeu,CN[C@@H](CCCC)C(C)=O,LEU,L,3,NLE,drafted-from-abbreviation,L-norleucine. NLE is also the real PDB CCD code.,local rotlib-free copy (NLE.params)
