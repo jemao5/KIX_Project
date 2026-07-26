@@ -46,17 +46,56 @@ SCORE_LABEL_MAP = {
 }
 
 
-def init_pyrosetta(dalphaball_path):
+def init_pyrosetta(dalphaball_path, extra_res_fa=None, strict_residues=False):
+    """Initialise Rosetta.
+
+    `-ignore_unrecognized_res` makes Rosetta DELETE any residue it has no
+    ResidueType for, and `-mute all` hides the warning -- so a non-canonical
+    amino acid without params silently vanishes from the pose, FastRelax then
+    relaxes the truncated peptide, and every interface metric is computed on a
+    structure with a hole in it. Pass --strict-residues to drop that flag so a
+    missing ResidueType is a loud failure instead.
+
+    Most ncAAs used here (BCS, A48, C00, C01, ABA, NLU) are Rosetta database
+    built-ins and need nothing extra; --extra-res-fa is for custom params such
+    as CIA (S-carboxymethyl-cysteine), which Rosetta does not ship.
+    """
     options = [
-        "-ignore_unrecognized_res",
         "-ignore_zero_occupancy",
-        "-mute all",
         "-corrections::beta_nov16 true",
         "-relax:default_repeats 1",
     ]
+    if not strict_residues:
+        options.append("-ignore_unrecognized_res")
+        options.append("-mute all")
     if dalphaball_path:
         options.append(f"-holes:dalphaball {dalphaball_path}")
+    for params in (extra_res_fa or []):
+        options.append(f"-extra_res_fa {params}")
     pr.init(" ".join(options))
+
+
+def assert_pose_complete(pose, pdb_path, expected=None):
+    """Guard against the silent-deletion failure mode described above.
+
+    Compares the pose's residue count against the number of distinct residues in
+    the input PDB. A mismatch means Rosetta dropped something -- almost always a
+    residue with no ResidueType -- and every downstream metric would be computed
+    on a mutilated structure.
+    """
+    if expected is None:
+        seen = set()
+        for line in open(pdb_path):
+            if line.startswith(("ATOM", "HETATM")):
+                seen.add((line[21], line[22:27]))
+        expected = len(seen)
+    got = pose.total_residue()
+    if got != expected:
+        raise RuntimeError(
+            f"Rosetta dropped {expected - got} residue(s) loading {pdb_path} "
+            f"(pose has {got}, PDB has {expected}). Almost certainly a residue "
+            f"with no ResidueType -- supply its params via --extra-res-fa.")
+    return got
 
 
 def parse_structure(structure_path):
@@ -165,6 +204,7 @@ def sanitize_structure(structure_path, target_chain_ids=None, remove_chain_ids=(
 
 def relax_structure(pdb_path, output_path):
     pose = pr.pose_from_pdb(pdb_path)
+    assert_pose_complete(pose, pdb_path)
     start_pose = pose.clone()
 
     mmf = MoveMap()
@@ -238,6 +278,7 @@ def hotspot_residues(pdb_file, binder_chain, target_chain, atom_distance_cutoff=
 
 def score_interface(pdb_file, binder_chain="B", target_chain="A"):
     pose = pr.pose_from_pdb(pdb_file)
+    assert_pose_complete(pose, pdb_file)
 
     iam = InterfaceAnalyzerMover()
     iam.set_interface(f"{target_chain}_{binder_chain}")
@@ -424,6 +465,12 @@ def parse_args():
     )
     parser.add_argument("--filters", default=None, help="Path to filters JSON to evaluate.")
     parser.add_argument("--dalphaball-path", default="", help="Required DAlphaBall path for PyRosetta.")
+    parser.add_argument("--extra-res-fa", action="append", default=None,
+                        help="Rosetta .params for a non-canonical residue (repeatable). "
+                             "Only needed for residues Rosetta does not ship, e.g. CIA.")
+    parser.add_argument("--strict-residues", action="store_true",
+                        help="Drop -ignore_unrecognized_res/-mute so a missing ResidueType "
+                             "crashes loudly instead of silently deleting the residue.")
     parser.add_argument("--no-relax", dest="relax", action="store_false", help="Skip PyRosetta FastRelax.")
     parser.add_argument("--output-json", default=None, help="Optional path to write JSON output.")
     parser.add_argument("--output-relaxed-pdb", default=None, help="Optional path to write relaxed pdb output.")
@@ -455,7 +502,8 @@ def main():
         os.makedirs(args.output_json, exist_ok=True)
     
 
-    init_pyrosetta(args.dalphaball_path)
+    init_pyrosetta(args.dalphaball_path, extra_res_fa=args.extra_res_fa,
+                   strict_residues=args.strict_residues)
 
     for path in structure_paths:
         try:

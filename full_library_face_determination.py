@@ -16,6 +16,13 @@ def parse_args():
     parser.add_argument("output_path", help="output path for output csv")
     parser.add_argument("--limit", default=None, help="Limit number of processed files to a number")
     parser.add_argument("--workers", default=1, type=int, help="number of workers")
+    parser.add_argument(
+        "--name-from", choices=["parent", "stem"], default="parent",
+        help="Where the join key comes from. 'parent' (default) uses the "
+             "containing folder name, which is right for the full library's "
+             "per-peptide dirs (Full_Library_Hit_N/...). Use 'stem' when the "
+             "CIFs sit flat in one directory, e.g. the control run -- otherwise "
+             "every row gets named after that shared directory.")
     return parser.parse_args()
 
 def collect_cif_files(pattern: str, limit: int | None) -> list[str]:
@@ -93,7 +100,10 @@ def main():
         f.write("name\tcmyb_contacts\tmll_contacts\tface_call\n")
 
         for cif_path, (cmyb, mll, call) in output.items():
-            name = Path(cif_path).parent.name   # the Full_Library_Hit_N folder
+            if args.name_from == "stem":
+                name = Path(cif_path).stem
+            else:
+                name = Path(cif_path).parent.name   # the Full_Library_Hit_N folder
             f.write(f"{name}\t{cmyb}\t{mll}\t{call}\n")
 
     n_err = sum(1 for v in output.values() if v[2] and str(v[2]).startswith("ERROR"))

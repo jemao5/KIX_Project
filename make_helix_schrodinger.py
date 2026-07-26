@@ -19,7 +19,8 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 # PDB_DIR = SCRIPT_DIR / "pdb_sts"
-PDB_DIR = Path("/scratch/jem9759/pdb_sts_full_library") 
+DEFAULT_PDB_DIR = Path("/scratch/jem9759/pdb_sts_full_library")
+PDB_DIR = DEFAULT_PDB_DIR
 CHAIN_ID = "B"
 
 
@@ -30,6 +31,11 @@ def parse_args():
     parser.add_argument(
         "tsv_path",
         help="Path to TSV with one 'name<TAB>sequence' per line",
+    )
+    parser.add_argument(
+        "--out_dir",
+        default=str(DEFAULT_PDB_DIR),
+        help=f"Directory for the built helix PDBs (default: {DEFAULT_PDB_DIR})",
     )
     return parser.parse_args()
 
@@ -86,7 +92,9 @@ def read_entries(tsv_path):
 
 
 def main():
+    global PDB_DIR
     args = parse_args()
+    PDB_DIR = Path(args.out_dir)
     entries = read_entries(args.tsv_path)
     print(f"Found {len(entries)} peptides to build")
 

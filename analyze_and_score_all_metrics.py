@@ -1,6 +1,11 @@
 import pandas as pd
 import os
 
+from kix_scoring import (
+    CONFIDENCE_FILTERS, PHYSICAL_FILTERS, HELICITY_FILTERS,
+    apply_filters, add_both_priority_scores, add_score_variants, SCORE_VARIANTS,
+)
+
 METRICS_DIR = "/scratch/jem9759/ZhangWork/KIX_Project/full_library_all_metrics"
 TSV_OUT = "/scratch/jem9759/ZhangWork/KIX_Project/tsv_outputs/full_library_out.tsv"
 
@@ -18,7 +23,12 @@ face      = pd.read_csv(f"{METRICS_DIR}/full_library_face_assignment.tsv", sep="
 # DSSP: key on 'file' path -> extract name; rename helix column
 dssp = pd.read_csv(f"{METRICS_DIR}/dssp_full_library.csv", sep="\t")
 dssp["name"] = dssp["file"].apply(name_from_path)
-dssp = dssp[["name", "chain_b_helix_fraction"]].rename(
+# chain_b_helix_count is carried alongside the fraction: the FRACTION is
+# length-dependent (its denominator is peptide length - 2, while the helical
+# core stays ~constant), so the raw COUNT is the length-robust QC statistic.
+# Measured on the literature controls: fraction vs length rho=-0.824, whereas
+# count vs length rho=-0.115 (n.s.).
+dssp = dssp[["name", "chain_b_helix_fraction", "chain_b_helix_count"]].rename(
     columns={"chain_b_helix_fraction": "helix_score"}
 )
 
@@ -37,33 +47,17 @@ df["n_K"] = df["Sequence"].map(lambda x: str(x).count("K"))
 df["n_M"] = df["Sequence"].map(lambda x: str(x).count("M"))
 
 # --- 4. CONFIDENCE FILTER (mentor cell 45) ---
-df_conf = df[
-    (df["confidence_score"] > 0.85) &
-    (df["pep_ptm"] > 0.80) &
-    (df["complex_pde"] < 0.5)
-]
+# Thresholds live in kix_scoring.py so analyze_controls.py audits the controls
+# against these exact clauses.
+df_conf = apply_filters(df, CONFIDENCE_FILTERS)
 print(f"After confidence filter: {len(df_conf)}")
 
 # --- 5. PHYSICAL + everything FILTER (mentor cell 55) ---
-df_filter = df_conf[
-    (df_conf["binder_score"] < 0.0) &
-    (df_conf["interface_dG"] < -25.0) &
-    (df_conf["interface_dSASA"] > 1.0) &
-    (df_conf["surface_hydrophobicity"] < 1.0) &
-    (df_conf["interface_sc"] > 0.5) &
-    (df_conf["interface_nres"] > 4.0) &
-    (df_conf["interface_interface_hbonds"] > 1) &
-    (df_conf["interface_delta_unsat_hbonds"] <= 5) &
-    (df_conf["n_K"] <= 3) &
-    (df_conf["n_M"] <= 3) &
-    (df_conf["hit_num"] >= 1) &
-    (df_conf["count"] > 1) &
-    (df_conf["protein_iptm"] > 0.85)
-].copy()
+df_filter = apply_filters(df_conf, PHYSICAL_FILTERS).copy()
 print(f"After physical filter: {len(df_filter)}")
 
 # DSSP helicity filter: keep chain-B helix fraction > 0.70
-df_filter = df_filter[df_filter["helix_score"]>.70]
+df_filter = apply_filters(df_filter, HELICITY_FILTERS)
 print(f"After helicity filter: {len(df_filter)}")
 
 
@@ -71,34 +65,32 @@ print(f"After helicity filter: {len(df_filter)}")
 df_filter = df_filter.sort_values("protein_iptm", ascending=False).drop_duplicates(subset=["Sequence"], keep="first")
 print(f"After dedup: {len(df_filter)}")
 
-# --- 7. priority_score (mentor cell 60) ---
-def add_priority_score(df, count_col="count", hit_col="hit_num",
-                       unsat_col="interface_delta_unsat_hbonds",
-                       protein_col="protein_iptm", helix_score_col="helix_score",
-                       count_weight=0.2, hit_weight=0.2, unsat_weight=0.1,
-                       protein_weight=0.2, helix_weight=0.2, score_col="priority_score"):
-    weights = count_weight + hit_weight + unsat_weight + protein_weight + helix_weight
-    d = df.copy()
-    count_rank   = d[count_col].rank(pct=True, method="average")
-    hit_rank     = d[hit_col].rank(pct=True, method="average")
-    unsat_rank   = 1.0 - d[unsat_col].rank(pct=True, method="average")
-    protein_rank = d[protein_col].rank(pct=True, method="average")
-    helix_rank   = d[helix_score_col].rank(pct=True, method="average")
-    d[score_col] = (count_weight*count_rank + hit_weight*hit_rank + unsat_weight*unsat_rank
-                    + protein_weight*protein_rank + helix_weight*helix_rank) / weights
-    return d.sort_values(score_col, ascending=False)
+# --- 7. priority_score (mentor cell 60) -> see kix_scoring.py ---
 
 # --- 8. SPLIT BY FACE, score each within its own population ---
 cmyb = df_filter[df_filter["face_call"] == "cmyb"].copy()
 mll  = df_filter[df_filter["face_call"] == "mll"].copy()
 print(f"c-Myb survivors: {len(cmyb)}, MLL survivors: {len(mll)}")
 
-cmyb_scored = add_priority_score(cmyb)
-mll_scored  = add_priority_score(mll)
+cmyb_scored = add_both_priority_scores(cmyb)
+mll_scored  = add_both_priority_scores(mll)
+
+# Score variants, computed IN ADDITION to the originals above (nothing removed):
+#   *_no_helix -> the helix-fraction term dropped
+#   *_pde      -> that term replaced by complex_pde
+# See kix_scoring.SCORE_VARIANTS and ControlPlan.md for why.
+cmyb_scored = add_score_variants(cmyb_scored).sort_values("priority_score", ascending=False)
+mll_scored  = add_score_variants(mll_scored).sort_values("priority_score", ascending=False)
+
+variant_cols = [f"priority_score{s}" for s in SCORE_VARIANTS if s] + \
+               [f"priority_score{s}_no_enrichment" for s in SCORE_VARIANTS if s]
 
 # --- 9. OUTPUT ---
 preview_cols = ["name", "Sequence", "count", "hit_num", "helix_score",
-                "interface_delta_unsat_hbonds", "interface_dG", "protein_iptm", "priority_score"]
+                "chain_b_helix_count", "complex_pde",
+                "interface_delta_unsat_hbonds", "interface_dG", "protein_iptm",
+                "priority_score", "priority_score_no_enrichment"] + variant_cols
+preview_cols = [c for c in preview_cols if c in cmyb_scored.columns]
 cmyb_scored[preview_cols].to_csv(f"{METRICS_DIR}/cmyb_candidates.csv", index=False)
 mll_scored[preview_cols].to_csv(f"{METRICS_DIR}/mll_candidates.csv", index=False)
 
