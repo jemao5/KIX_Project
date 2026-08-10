@@ -10,6 +10,9 @@
 finding that was later retracted. This summary supersedes it. Read this; use the rest as audit
 trail.*
 
+*Companion file: `SCORES_AND_RESULTS.md` — what every `priority_score*` column actually is,
+and which of the 49 result files to open for what.*
+
 ## Question
 
 Does the KIX screen's `priority_score` actually predict binding? Tested against 24 literature
