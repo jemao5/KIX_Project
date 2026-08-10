@@ -1,0 +1,5 @@
+name	chainB_cmyb_contacts	chainB_mll_contacts	chainB_face	chainC_cmyb_contacts	chainC_mll_contacts	chainC_face	verdict
+MLL6_CstarA	7	0	cmyb	1	4	mll	DUAL
+MLL6_YA	8	0	cmyb	0	6	mll	DUAL
+decoy_polyAla	0	1	neither	0	5	mll	PARTIAL
+decoy_scramble	7	0	cmyb	0	6	mll	DUAL

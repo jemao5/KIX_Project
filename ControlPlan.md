@@ -227,6 +227,53 @@ surface area per hit residue) is the obvious follow-up. It is also the most leng
 metric tested (rho_len 0.64) — though the library is uniform 10-mers, where that contributes
 nothing to ranking.
 
+## 8. Dual-face cofold — the binary face call FAILS, but per-copy interface_dG works
+
+KIX + 2 copies of each peptide (chains A/B/C), no constraints; top 40 per face by
+`priority_score_v2_pde`, plus `cMyb_native`/`WT_MLL` and 4 decoys.
+
+**The binary face call is uninformative.** 64/82 came out DUAL — but so did both single-face
+natives, both measured non-binders (>9999 uM) and a scrambled sequence. Give Boltz two empty
+grooves and two chains and it fills both. `pair_chains_iptm` was no better: it ranks WT_MLL #1,
+cMyb_native #2 and the NON-BINDER MLL6_YA #3 of 86.
+
+**Running the full metric pipeline per copy fixes it.** `split_dual_copies.py` splits each
+3-chain complex into KIX+copyB and KIX+copyC (chain C renamed B), so the standard unmodified
+pipeline runs on each — and it sidesteps `sanitize_structure`'s C/D deletion. 172 sub-complexes
+through BindCraft, Schrodinger hbond/pi-pi, hydrophobic contacts, DSSP and the face call.
+
+Ranked on the **weaker** copy (a real dual binder needs BOTH sites good), of 86:
+
+| control | truth | by `weaker_dG` | by composite |
+|---|---|---|---|
+| cMyb_native | native | **#1** | #18 |
+| WT_MLL | native | #3 | #3 |
+| MLL6_YA | **non-binder** | #50 | **#20** |
+| MLL6_CstarA | **non-binder** | #55 | #47 |
+| decoy_scramble | nonsense | #75 | #84 |
+| decoy_polyAla | nonsense | #86 | #85 |
+
+`interface_dG` is the **only metric all study** that orders the controls correctly. Not a length
+artefact: MLL6_YA is a 12-mer (longer than the 10-mer candidates, so more contacts available)
+yet ranks below 49 of them. Length-matched candidates vs decoys (both 10-mers):
+`weaker_dG` p=0.011, composite p=0.010, AUC 0.988.
+
+⚠️ **`interface_dG` IS NOT IN ANY COMPOSITE SCORE.** The blend is
+`0.29*hit_num_v2 + 0.14*(1-unsat) + 0.29*protein_iptm + 0.29*(1-complex_pde)` — 58% Boltz
+confidence, the family that ranks non-binders top. `interface_dG` is used only as a filter
+(`< -25`). That is why the composite is *worse* than dG alone here, and it is the clearest
+candidate for a scoring change: **promote interface_dG from filter to ranking term.**
+
+**Shortlist**: 62/80 put their copies on different faces; 40 also have both interfaces
+`dG < -25` and beat both decoys -> `dual_cofold/dual_shortlist.csv`. Top by weaker interface:
+Hit_3019 (-37.5), Hit_2736 (-35.9), Hit_1805 (-35.4/-35.5, notably symmetric), Hit_383 (-35.1),
+Hit_7965 (-34.5) — versus cMyb_native -43.4 and WT_MLL -36.1. These come from the MIDDLE of the
+per-face rankings (#16-39), so dual capability is a distinct property from single-face strength.
+
+**Caveats**: 6 control points only; BindCraft's +/-2.8 kcal/mol noise means the top ~5 should not
+be finely ranked against each other; and this measures each copy as placed in the 3-chain
+complex, not whether it would bind alone.
+
 ## Decisions to discuss
 
 - Drop the helicity term from the MLL ranking? (clear improvement, AUC 0.598 → 0.750)
