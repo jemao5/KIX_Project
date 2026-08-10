@@ -25,8 +25,12 @@ A peptide only binds both faces if BOTH copies bind well, so the dual score is
 the **minimum** of the two copies' scores -- the weaker interface is the
 bottleneck. Taking a mean would let one excellent site hide a dead one.
 
-    dual_priority_score_v2_pde = min(copyB, copyC) of
-                                 priority_score_v2_pde_no_enrichment
+    dual_priority_score_v2_pde = min(copyB, copyC) of priority_score_v2_pde
+
+The count-bearing form is the one to rank the 80 library hits on -- they are
+mRNA-display hits with real enrichment counts. The `_no_enrichment` twin is
+emitted alongside because decoys and natives have no count, so it is the only
+score on which all 86 are comparable.
 
 That is the same blend used to pick the top 40 per face, unchanged. `_dG` and
 `_v2` variants of the same idea are emitted alongside for comparison.
@@ -46,7 +50,12 @@ METRICS = ["hit_num", "hit_num_v2", "helix_score", "complex_pde",
            "interface_delta_unsat_hbonds", "interface_dG", "protein_iptm",
            "interface_sc", "interface_nres", "interface_interface_hbonds",
            "binder_score", "cmyb_contacts", "mll_contacts", "face_call"]
-SCORES = ["priority_score_no_enrichment", "priority_score_pde_no_enrichment",
+# Both families. The count-bearing ones are the right score for the 80 library
+# hits (they have real enrichment counts, 2-36); the _no_enrichment ones are the
+# only way to compare against decoys and the natives, which have no count.
+SCORES = ["priority_score", "priority_score_pde",
+          "priority_score_v2", "priority_score_v2_pde",
+          "priority_score_no_enrichment", "priority_score_pde_no_enrichment",
           "priority_score_v2_no_enrichment", "priority_score_v2_pde_no_enrichment"]
 # lower-is-better metrics: the "weaker" copy is the one with the HIGHER value
 LOWER_BETTER = {"interface_dG", "complex_pde", "interface_delta_unsat_hbonds",
@@ -97,22 +106,27 @@ def main():
 
     # the dual scores: a dual binder is only as good as its weaker interface
     for s in SCORES:
-        wide[f"dual_{s.replace('_no_enrichment','')}"] = \
-            wide[[f"copyB_{s}", f"copyC_{s}"]].min(axis=1)
+        # keep the full suffix -- stripping _no_enrichment collided the two
+        # families onto one column name and silently overwrote the first
+        wide[f"dual_{s}"] = wide[[f"copyB_{s}", f"copyC_{s}"]].min(axis=1)
 
+    # `count` is a per-peptide enrichment tally, identical for both copies, so it
+    # is merged once rather than expanded into cmyb_/mll_/copyB_ variants
     sel = pd.read_csv(f"{D}/dual_selection.csv")[
-        ["name", "Sequence", "source_face", "face_rank"]].rename(columns={"name": "peptide"})
+        ["name", "Sequence", "source_face", "face_rank", "count"]].rename(
+        columns={"name": "peptide"})
     wide = wide.merge(sel, on="peptide", how="left")
 
-    lead = ["peptide", "Sequence", "group", "source_face", "face_rank", "faces",
-            "cmyb_copy", "mll_copy"]
+    lead = ["peptide", "Sequence", "group", "count", "source_face", "face_rank",
+            "faces", "cmyb_copy", "mll_copy"]
     dual = [c for c in wide.columns if c.startswith("dual_")]
     byface = [c for c in wide.columns
               if (c.startswith("cmyb_") or c.startswith("mll_")) and c not in lead]
     weak = [c for c in wide.columns if c.startswith("weaker_")]
     rest = [c for c in wide.columns if c not in lead + dual + byface + weak]
     wide = wide[lead + dual + byface + weak + rest].sort_values(
-        "dual_priority_score_v2_pde", ascending=False)
+        ["dual_priority_score_v2_pde", "dual_priority_score_v2_pde_no_enrichment"],
+        ascending=False, na_position="last")
     wide.to_csv(f"{D}/dual_summary.csv", index=False)
     print(f"dual_summary.csv: {len(wide)} peptides x {len(wide.columns)} cols")
 
