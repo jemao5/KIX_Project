@@ -30,6 +30,7 @@ from kix_scoring import (
     CONFIDENCE_FILTERS, PHYSICAL_FILTERS, HELICITY_FILTERS, ALL_FILTERS,
     LIBRARY_DESIGN_FILTERS, apply_filters, filter_audit, add_both_priority_scores,
     add_swap_sensitive_score, add_score_variants, SCORE_VARIANTS,
+    SCORE_VARIANTS_V2,
 )
 
 ROOT        = "/scratch/jem9759/ZhangWork/KIX_Project"
@@ -48,7 +49,7 @@ VARIANTS = {
                       tag=""),
     "ncaa":      dict(boltz="control_boltz_data.csv",       # fold is pre-graft, unchanged
                       bindcraft="control_bindcraft_ncaa.csv",
-                      hit="control_interactions_clean_ncaa.csv",
+                      hit="control_interactions_clean_ncaa_v2.csv",
                       face="control_face_assignment_ncaa.tsv",
                       dssp="control_dssp_ncaa.csv",
                       tag="_ncaa"),
@@ -88,7 +89,12 @@ def load_dssp(path):
 # --- 1. LIBRARY: reproduce analyze_and_score_all_metrics.py exactly ---------
 boltz     = pd.read_csv(f"{METRICS_DIR}/boltz_metrics_full_library.csv")
 bindcraft = pd.read_csv(f"{METRICS_DIR}/bindcraft_full_library.csv")
-hit       = pd.read_csv(f"{METRICS_DIR}/hbond_hit_counts.csv", sep="\t")
+# v2 table carries both hit_num and hit_num_v2; without it the library rows
+# would be NaN for hit_num_v2 and poison the pooled percentile ranks.
+_hf = f"{METRICS_DIR}/hbond_hit_counts_v2.csv"
+if not os.path.exists(_hf):
+    _hf = f"{METRICS_DIR}/hbond_hit_counts.csv"
+hit       = pd.read_csv(_hf, sep="\t")
 count     = pd.read_csv(f"{METRICS_DIR}/enrichment_count.csv", sep="\t")
 face      = pd.read_csv(f"{METRICS_DIR}/full_library_face_assignment.tsv", sep="\t")
 dssp      = load_dssp(f"{METRICS_DIR}/dssp_full_library.csv")
@@ -165,12 +171,14 @@ for face_name in ["cmyb", "mll"]:
     print(f"{face_name}: {len(pool)} in pool ({len(pool)-n_c} library + {n_c} controls)")
 
 preview_cols = ["name", "Sequence", "is_control", "label", "kd_or_ki_uM",
-                "count", "hit_num", "helix_score", "interface_delta_unsat_hbonds",
+                "count", "hit_num", "hit_num_v2", "helix_score", "interface_delta_unsat_hbonds",
                 "interface_dG", "protein_iptm",
                 "priority_score", "priority_score_no_enrichment",
                 "priority_score_swap_sensitive", "pct_of_face_pool"] + \
-               [f"priority_score{v}_no_enrichment" for v in SCORE_VARIANTS if v] + \
-               [f"priority_score{v}" for v in SCORE_VARIANTS if v]
+               [f"priority_score{v}_no_enrichment"
+                for v in list(SCORE_VARIANTS) + list(SCORE_VARIANTS_V2) if v] + \
+               [f"priority_score{v}"
+                for v in list(SCORE_VARIANTS) + list(SCORE_VARIANTS_V2) if v]
 
 for face_name, out in [("cmyb", f"cmyb_candidates_with_controls{TAG}.csv"),
                        ("mll", f"mll_candidates_with_controls{TAG}.csv")]:
@@ -183,7 +191,7 @@ for face_name, out in [("cmyb", f"cmyb_candidates_with_controls{TAG}.csv"),
 all_scored = pd.concat(scored.values(), ignore_index=True, sort=False)
 ctrl_out = all_scored[all_scored["is_control"]].copy()
 ctrl_cols = ["name", "Sequence", "face_call", "structural_face_call", "label",
-             "kd_or_ki_uM", "measurement_type", "hit_num", "helix_score",
+             "kd_or_ki_uM", "measurement_type", "hit_num", "hit_num_v2", "helix_score",
              "confidence_score", "pep_ptm", "complex_pde", "protein_iptm",
              "binder_score", "interface_dG", "interface_dSASA", "interface_sc",
              "interface_nres", "interface_interface_hbonds",

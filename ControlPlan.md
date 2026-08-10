@@ -79,6 +79,13 @@ ARG 86 (23), ARG 83 (18), GLU 78 (13), LYS 82 (11) — none of which are in the 
 This explains why tight binders score `hit_num = 0`. `interface_interface_hbonds` (BindCraft's
 count over the *whole* interface) is the better-behaved analogue and had the correct sign.
 
+⚠️ **But the obvious fix makes it WORSE — see "Re-deriving the hit residues" below.** Rebuilding
+the list from residues that actually H-bond in 2AGH removes the self-inconsistency and drops the
+controls failing `hit_num >= 1` from 13/24 to 1/24 — yet discrimination collapses
+(positives-vs-negatives p 0.037 -> 0.400). The stringency was the point: an H-bond inside a
+hydrophobic groove is rare and demands a correctly seated peptide, whereas the crystal-derived
+surface arginines are salt-bridged by everything. **Keep the original list.**
+
 **5. The c-Myb arm validates.** `cMyb_native` ranks above all 111 library c-Myb candidates
 (100th percentile, helix 0.91, iptm 0.968) and passes every binding filter.
 
@@ -122,6 +129,103 @@ count over the *whole* interface) is the better-behaved analogue and had the cor
    These give the noise-floor estimate.
 7. **n=23, one face.** The c-Myb arm has a single control, so nothing is validated there.
 8. **Conformer choice is a greedy heuristic** (most KIX contacts among clash-free), then relaxed.
+
+## Re-deriving the hit residues from 2AGH — tested, and the original list wins
+
+`derive_hit_residues.py` runs the same Schrodinger interaction workflow on 2AGH model 1
+(chains: A = c-Myb peptide, B = KIX, C = MLL peptide; numbering offset 585, verified against
+KIX_SEQUENCE) and reports H-bond, pi-pi and heavy-atom contacts per KIX residue ->
+`hit_residue_derivation.tsv`. Three named sets now live in `kix_scoring.HIT_RESIDUE_SETS`,
+selectable via `hbond_hit_num.py --residue-set`.
+
+**Diagnosis confirmed.** Every residue in the current lists *does* contact the native peptide —
+the ChimeraX derivation was sound. But the lists are **contact**-derived while `hit_num` counts
+**H-bonds/pi-pi**, so 6 of 8 (c-Myb) and 5 of 7 (MLL) listed residues make zero H-bond/pi-pi in
+the crystal and can never contribute.
+
+| set | c-Myb | MLL |
+|---|---|---|
+| original | 14,18,21,65,69,72,73,76 | 27,39,43,46,71,75,79 |
+| crystal | 9,21,61,76,80,81 | 27,39,83,84,86 |
+| union | 12 residues | 10 residues |
+
+GLU 78 / LYS 82 excluded by decision: frequent partners in our control structures (13x, 11x) but
+5.63 A / 6.99 A from the native peptide, so including them would fit the list to the predictions.
+
+**Result — the fix works mechanically but LOSES the signal:**
+
+| set | controls failing `hit_num>=1` | pos mean | neg mean | MWU p | rho vs affinity | library survivors |
+|---|---|---|---|---|---|---|
+| **original** | 13/24 | 1.00 | 0.27 | **0.037** | **-0.519** | 198 (111/87) |
+| crystal | 1/24 | 2.33 | 2.09 | 0.400 | -0.031 | 209 (107/102) |
+| union | 0/24 | 2.75 | 2.09 | 0.145 | -0.167 | 220 (111/109) |
+
+Full-score AUC moves the same way: current-score 0.598 -> 0.523 -> 0.553; `_pde` 0.765 -> 0.712
+-> 0.750. **`original` is best on every discrimination measure.**
+
+**Why the "flaw" is the feature.** The crystal residues are surface arginines (ARG 39/83/84/86);
+any peptide with an Asp or Glu nearby forms a salt bridge, so *everything* scores 2-3 and the
+metric stops discriminating. The original list is the hydrophobic-lined groove, where an H-bond
+is rare and demands the peptide be correctly seated — so most peptides score 0 and a non-zero
+score is meaningful. `hit_num = 0` for `WT_MLL` is the metric correctly reporting that the
+predicted pose puts no polar group in the groove, not a bug.
+
+**Decision: keep `original` as the default** (it already is). `crystal`/`union` are retained as
+selectable alternatives so this is reproducible. Caveat: the original's rho = -0.519 is largely
+length-confounded (partial rho = -0.120).
+
+## 7. `hit_num_v2` — count hydrophobic contacts too (BEST RESULT SO FAR)
+
+`hit_num` counts only H-bonds/pi-pi, so the 4 apolar MLL hit residues (PHE 27, LEU 43, ILE 75,
+LEU 79) can never contribute — the hydrophobic packing that drives MLL binding is invisible.
+Rather than change the residue list (tested in §6 and rejected), keep it and add the missing
+interaction type:
+
+```
+hit_num_v2 = (H-bonds + pi-pi on hit residues)              # = hit_num, unchanged
+           + (# APOLAR hit residues within 4.5 A)           # new
+```
+
+Each residue contributes via exactly one mechanism, so nothing is double counted. Apolar
+membership is derived from `KIX_SEQUENCE` (`kix_scoring.apolar_hit_residues`), not hardcoded.
+Contacts come from `hydrophobic_contacts.py` (mirrors `full_library_face_determination.py`;
+2 min for all 31,392 library structures, 0 errors).
+
+**Only works with the `original` residue list** — `crystal` has just 1 apolar residue left, and
+`union` dilutes the signal with generic surface arginines:
+
+| list | apolar residues | MWU p | rho vs affinity |
+|---|---|---|---|
+| **original** | 4 (27,43,75,79) | **0.007** | **-0.622** |
+| crystal | 1 (27) | 0.400 | -0.031 |
+| union | 4 | 0.075 | -0.225 |
+
+Cutoff is insensitive: 4.5 A and 5.0 A give identical results; 4.0 A is slightly worse
+(p=0.016).
+
+**Effect on the pooled score (87 MLL library survivors + 23 controls) — improves every blend:**
+
+| score | gap | AUC | p |
+|---|---|---|---|
+| current (`hit_num`, helix) | +0.032 | 0.598 | 0.221 |
+| `hit_num_v2`, helix | +0.073 | 0.636 | 0.141 |
+| `hit_num`, no helix | +0.129 | 0.750 | 0.023 |
+| `hit_num_v2`, no helix | +0.180 | 0.773 | 0.014 |
+| `hit_num`, pde | +0.212 | 0.765 | 0.017 |
+| **`hit_num_v2`, pde** | **+0.234** | **0.788** | **0.011** |
+
+The two changes are independent and additive. All six now exist as columns
+(`priority_score[_v2][_no_helix|_pde][_no_enrichment]`); **`hit_num` and the original score are
+untouched**, and the 198-candidate shortlist is unchanged.
+
+⚠️ **Do not put `hit_num_v2` in the FILTER.** It is never 0 in the library (30,768 of 30,776
+would pass `>= 1`), so it would silently disable that clause. It is a ranking term only.
+
+⚠️ **The apolar term saturates**: on the controls it takes 2 values (3 or 4 of 4 contacted),
+21 of 23 scoring 4. It works in combination but only p=0.074 alone. A continuous form (buried
+surface area per hit residue) is the obvious follow-up. It is also the most length-correlated
+metric tested (rho_len 0.64) — though the library is uniform 10-mers, where that contributes
+nothing to ranking.
 
 ## Decisions to discuss
 

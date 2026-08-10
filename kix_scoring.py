@@ -134,6 +134,19 @@ SCORE_VARIANTS = {
     "_pde":      _CORE + [("complex_pde", 0.2, True)],
 }
 
+# Same three blends but with `hit_num` swapped for `hit_num_v2`, which adds a
+# contact term for the apolar hit residues that cannot H-bond (see
+# hydrophobic_contacts.py). On the 23 MLL controls hit_num_v2 separates
+# positives from negatives at MWU p=0.007 / rho=-0.622 vs p=0.037 / rho=-0.519
+# for hit_num. Variants are only built when the column is present, so nothing
+# breaks on tables predating it.
+_CORE_V2 = [("hit_num_v2", 0.2, False)] + _CORE[1:]
+SCORE_VARIANTS_V2 = {
+    "_v2":          _CORE_V2 + [("helix_score", 0.2, False)],
+    "_v2_no_helix": _CORE_V2,
+    "_v2_pde":      _CORE_V2 + [("complex_pde", 0.2, True)],
+}
+
 
 def _blend(d, spec):
     terms = [(w, (1.0 - d[c].rank(pct=True, method="average")) if inv
@@ -154,7 +167,10 @@ def add_score_variants(df, with_count=True):
     definitions and must remain bit-identical to the previous implementation.
     """
     d = df.copy()
-    for suffix, spec in SCORE_VARIANTS.items():
+    variants = dict(SCORE_VARIANTS)
+    if "hit_num_v2" in d.columns:
+        variants.update(SCORE_VARIANTS_V2)
+    for suffix, spec in variants.items():
         d[f"priority_score{suffix}_no_enrichment"] = _blend(d, spec)
         if with_count and "count" in d.columns:
             d[f"priority_score{suffix}"] = _blend(d, [("count", 0.2, False)] + spec)
@@ -202,3 +218,83 @@ def add_both_priority_scores(df):
     d = add_priority_score(d, count_weight=0.0,
                            score_col="priority_score_no_enrichment")
     return d.sort_values("priority_score", ascending=False)
+
+
+# --- hit_num residue sets -------------------------------------------------
+# `hit_num` counts peptide<->KIX H-bonds and pi-pi stacking, but ONLY those
+# landing on a per-face list of "hit residues". Three lists are available.
+#
+#   original : the hand-picked list, derived from ChimeraX VDW CONTACTS on 2AGH.
+#              Correct as a description of the binding face, but mismatched to
+#              the metric: contacts include hydrophobic packing, H-bonds do not,
+#              so 6 of 8 (c-Myb) and 5 of 7 (MLL) of these residues make ZERO
+#              H-bond/pi-pi in the crystal and can never contribute to hit_num.
+#   crystal  : residues that actually H-bond or pi-stack with the NATIVE peptide
+#              in 2AGH model 1, derived by derive_hit_residues.py using the same
+#              Schrodinger workflow that computes hit_num.
+#   union    : original | crystal.
+#
+# Cross-validation: of the 99 interactions our 23 MLL controls actually make,
+# `original` captures 15%, `crystal` 52%, `union` 57%. The three residues our
+# controls H-bond to most (ARG 86 x23, ARG 83 x18, ARG 39 x9) are all in
+# `crystal`; two are absent from `original`.
+#
+# GLU 78 and LYS 82 are deliberately EXCLUDED despite being frequent partners in
+# our control structures (13x and 11x): neither contacts the native peptide in
+# 2AGH (5.63 A and 6.99 A minimum heavy-atom distance), and including them would
+# mean fitting the residue list to the predictions we are trying to validate.
+#
+# Residue numbers are in pipeline numbering (1-87). 2AGH uses CBP numbering;
+# offset is 585.
+KIX_SEQUENCE = ("GVRKGWHEHVTQDLRSHLVHKLVQAIFPTPDPAALKDRRMENLVAYAKKVEGDMYESANSRD"
+                "EYYHLLAEKIYKIQKELEEKRRSRL")
+
+_ONE_TO_THREE = {"A":"ALA","R":"ARG","N":"ASN","D":"ASP","C":"CYS","Q":"GLN","E":"GLU",
+                 "G":"GLY","H":"HIS","I":"ILE","L":"LEU","K":"LYS","M":"MET","F":"PHE",
+                 "P":"PRO","S":"SER","T":"THR","V":"VAL","W":"TRP","Y":"TYR"}
+
+_HIT_RESIDUE_NUMBERS = {
+    "original": {"cmyb": [14, 18, 21, 65, 69, 72, 73, 76],
+                 "mll":  [27, 39, 43, 46, 71, 75, 79]},
+    "crystal":  {"cmyb": [9, 21, 61, 76, 80, 81],
+                 "mll":  [27, 39, 83, 84, 86]},
+}
+_HIT_RESIDUE_NUMBERS["union"] = {
+    face: sorted(set(_HIT_RESIDUE_NUMBERS["original"][face])
+                 | set(_HIT_RESIDUE_NUMBERS["crystal"][face]))
+    for face in ("cmyb", "mll")
+}
+
+HIT_RESIDUE_SETS = sorted(_HIT_RESIDUE_NUMBERS)
+
+
+def hit_residue_strings(set_name, face, chain="A"):
+    """['LEU 14 A', ...] for one face. Residue NAMES are derived from
+    KIX_SEQUENCE rather than transcribed, so the numbers are the only thing
+    that can be got wrong."""
+    if set_name not in _HIT_RESIDUE_NUMBERS:
+        raise KeyError(f"unknown hit-residue set {set_name!r}; "
+                       f"choose from {HIT_RESIDUE_SETS}")
+    out = []
+    for i in _HIT_RESIDUE_NUMBERS[set_name][face]:
+        if not 1 <= i <= len(KIX_SEQUENCE):
+            raise ValueError(f"residue {i} outside KIX 1-{len(KIX_SEQUENCE)}")
+        out.append(f"{_ONE_TO_THREE[KIX_SEQUENCE[i - 1]]} {i} {chain}")
+    return out
+
+
+# Side chains that carry no H-bond donor or acceptor. A hit residue of one of
+# these types can NEVER contribute to hit_num, which counts only H-bonds and
+# pi-pi -- on the MLL face that is 4 of the 7 listed residues (PHE 27, LEU 43,
+# ILE 75, LEU 79), i.e. the hydrophobic packing that actually drives MLL binding
+# is invisible to the metric. `hit_num_v2` adds a contact term for exactly these
+# residues; see hydrophobic_contacts.py.
+APOLAR_AA = set("AVLIMFWPCG")
+
+
+def apolar_hit_residues(set_name, face):
+    """Hit residues whose side chain cannot H-bond, so they can only ever be
+    detected as a contact. Membership is derived from KIX_SEQUENCE rather than
+    hardcoded, so it stays correct if the residue list changes."""
+    return [i for i in _HIT_RESIDUE_NUMBERS[set_name][face]
+            if KIX_SEQUENCE[i - 1] in APOLAR_AA]

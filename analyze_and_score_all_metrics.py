@@ -4,6 +4,7 @@ import os
 from kix_scoring import (
     CONFIDENCE_FILTERS, PHYSICAL_FILTERS, HELICITY_FILTERS,
     apply_filters, add_both_priority_scores, add_score_variants, SCORE_VARIANTS,
+    SCORE_VARIANTS_V2,
 )
 
 METRICS_DIR = "/scratch/jem9759/ZhangWork/KIX_Project/full_library_all_metrics"
@@ -16,7 +17,13 @@ def name_from_path(path):
 # --- 1. LOAD ALL LAYERS ---
 boltz    = pd.read_csv(f"{METRICS_DIR}/boltz_metrics_full_library.csv")
 bindcraft= pd.read_csv(f"{METRICS_DIR}/bindcraft_full_library.csv")
-hit       = pd.read_csv(f"{METRICS_DIR}/hbond_hit_counts.csv", sep="\t")
+# v2 table carries BOTH hit_num (unchanged) and hit_num_v2 (adds the apolar
+# contact term). Falls back to the original file if v2 has not been built.
+import os as _os
+_hitfile = f"{METRICS_DIR}/hbond_hit_counts_v2.csv"
+if not _os.path.exists(_hitfile):
+    _hitfile = f"{METRICS_DIR}/hbond_hit_counts.csv"
+hit       = pd.read_csv(_hitfile, sep="\t")
 count     = pd.read_csv(f"{METRICS_DIR}/enrichment_count.csv", sep="\t")
 face      = pd.read_csv(f"{METRICS_DIR}/full_library_face_assignment.tsv", sep="\t")
 
@@ -82,11 +89,12 @@ mll_scored  = add_both_priority_scores(mll)
 cmyb_scored = add_score_variants(cmyb_scored).sort_values("priority_score", ascending=False)
 mll_scored  = add_score_variants(mll_scored).sort_values("priority_score", ascending=False)
 
-variant_cols = [f"priority_score{s}" for s in SCORE_VARIANTS if s] + \
-               [f"priority_score{s}_no_enrichment" for s in SCORE_VARIANTS if s]
+_all_variants = [v for v in list(SCORE_VARIANTS) + list(SCORE_VARIANTS_V2) if v]
+variant_cols = [f"priority_score{s}" for s in _all_variants] + \
+               [f"priority_score{s}_no_enrichment" for s in _all_variants]
 
 # --- 9. OUTPUT ---
-preview_cols = ["name", "Sequence", "count", "hit_num", "helix_score",
+preview_cols = ["name", "Sequence", "count", "hit_num", "hit_num_v2", "helix_score",
                 "chain_b_helix_count", "complex_pde",
                 "interface_delta_unsat_hbonds", "interface_dG", "protein_iptm",
                 "priority_score", "priority_score_no_enrichment"] + variant_cols

@@ -299,6 +299,16 @@ Ranking uses **`priority_score_no_enrichment`**, since `count` is undefined for 
    ARG 86 (23×), ARG 83 (18×), GLU 78 (13×), LYS 82 (11×) — none in the hit list. This is why
    genuine tight binders score `hit_num = 0`. `interface_interface_hbonds` (BindCraft, whole
    interface) is the better-behaved analogue.
+   ⚠️ **The obvious fix was tested and REJECTED.** `derive_hit_residues.py` rebuilt the lists from
+   residues that actually H-bond/pi-stack with the native peptide in 2AGH model 1 (offset 585);
+   the three sets live in `kix_scoring.HIT_RESIDUE_SETS`, selectable via
+   `hbond_hit_num.py --residue-set {original,crystal,union}`. The `crystal` set drops controls
+   failing `hit_num >= 1` from 13/24 to 1/24, but **discrimination collapses**: positives-vs-
+   negatives MWU p 0.037 -> 0.400, rho vs affinity -0.519 -> -0.031, full-score AUC 0.598 -> 0.523
+   (`_pde` 0.765 -> 0.712). Reason: the crystal residues are surface arginines (39/83/84/86) that
+   *every* Asp/Glu-containing peptide salt-bridges, so hit_num stops discriminating. The original
+   list is the hydrophobic groove, where an H-bond is rare and requires correct seating — the
+   stringency is the signal. **`original` remains the default.**
 8. ⚠️ **The filter set looks non-discriminating only because two clauses cancel.** Binding-filter
    pass rate is positives **17%** (2/12) vs negatives **18%** (2/11) — flat. But drop the
    helicity clause and positives jump to **42%** (5/12) while negatives stay at **18%**; drop
