@@ -1,0 +1,16 @@
+{
+  "candidates": [
+    "/scratch/jem9759/ZhangWork/KIX_Project/dual_cofold/dual_shortlist.csv"
+  ],
+  "sort_by": "dual_priority_score_v2_pde",
+  "n_per_file": 40,
+  "name_col": "peptide",
+  "boltz_root": "/scratch/jem9759/ZhangWork/KIX_Project/dual_cofold/boltz_out",
+  "reference": "/scratch/jem9759/ZhangWork/KIX_Project/2agh_model1.cif",
+  "n_aligned": 40,
+  "missing": [],
+  "align_on_chain": [
+    "B",
+    "A"
+  ]
+}

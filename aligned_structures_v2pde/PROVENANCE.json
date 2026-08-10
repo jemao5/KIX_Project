@@ -1,0 +1,17 @@
+{
+  "candidates": [
+    "/scratch/jem9759/ZhangWork/KIX_Project/full_library_all_metrics/cmyb_candidates.csv",
+    "/scratch/jem9759/ZhangWork/KIX_Project/full_library_all_metrics/mll_candidates.csv"
+  ],
+  "sort_by": "priority_score_v2_pde",
+  "n_per_file": 40,
+  "name_col": "name",
+  "boltz_root": "/scratch/jem9759/ZhangWork/KIX_Project/boltz_out_full",
+  "reference": "/scratch/jem9759/ZhangWork/KIX_Project/2agh_model1.cif",
+  "n_aligned": 80,
+  "missing": [],
+  "align_on_chain": [
+    "B",
+    "A"
+  ]
+}

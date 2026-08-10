@@ -61,6 +61,18 @@ SCORES = ["priority_score", "priority_score_pde",
 LOWER_BETTER = {"interface_dG", "complex_pde", "interface_delta_unsat_hbonds",
                 "binder_score"}
 
+# --- shortlist criteria ---------------------------------------------------
+# dG cutoff is -24, not the library's -25. The -25 cut was the ENTIRE qualifying
+# pool (not a top-N), so excluding the unfolded peptides below left only 34 with
+# nothing behind them to promote. -24 refills to 40, and BindCraft's interface_dG
+# varies +/-2.8 kcal/mol on identical input -- so -24.6 and -25.0 are the same
+# measurement, and this is not a meaningfully looser bar.
+DG_CUTOFF = -24.0
+# Both copies must actually be folded. Six peptides were templated on an idealised
+# helix and Boltz still moved them to ZERO helical residues -- an unstable fold,
+# not a missing input. Every library survivor sits at 0.75-0.88.
+MIN_HELIX = 0.0
+
 
 def main():
     m = pd.read_csv(f"{D}/dual_metrics_per_copy.csv")
@@ -133,10 +145,13 @@ def main():
     # shortlist: copies on DIFFERENT faces, both interfaces past the library's own
     # dG threshold, and both beating the best decoy
     dec = wide[wide.group == "decoy"]["weaker_interface_dG"].min()
-    ok = wide[(wide.group == "candidate") & (wide.faces == "cmyb+mll")
-              & (wide.weaker_interface_dG < -25.0) & (wide.weaker_interface_dG < dec)]
+    folded = (wide.cmyb_helix_score > MIN_HELIX) & (wide.mll_helix_score > MIN_HELIX)
+    ok = wide[(wide.group == "candidate") & (wide.faces == "cmyb+mll") & folded
+              & (wide.weaker_interface_dG < DG_CUTOFF)
+              & (wide.weaker_interface_dG < dec)]
     ok.to_csv(f"{D}/dual_shortlist.csv", index=False)
-    print(f"dual_shortlist.csv: {len(ok)} candidates (decoy floor {dec:.2f})")
+    print(f"dual_shortlist.csv: {len(ok)} candidates "
+          f"(dG < {DG_CUTOFF}, both copies folded, decoy floor {dec:.2f})")
 
 
 if __name__ == "__main__":
