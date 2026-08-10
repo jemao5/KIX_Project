@@ -155,6 +155,6 @@ Per-stage inputs, rarely opened directly:
 - `dual_list.tsv` (79 rows)
 - `dual_metrics_per_copy.csv` (172 rows)
 - `dual_selection.csv` (80 rows)
-- `dual_shortlist.csv` (15 rows)
+- `dual_shortlist.csv` (40 rows)
 - `dual_summary.csv` (86 rows)
 
