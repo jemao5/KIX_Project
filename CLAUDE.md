@@ -370,6 +370,19 @@ Ranking uses **`priority_score_no_enrichment`**, since `count` is undefined for 
   Mitigation if it matters: raise `-relax:default_repeats` and/or average several replicates —
   costly across 31k. The stored value sits outside all three fresh runs, hinting the original
   library pass used a different Rosetta build; do not compare fresh numbers to stored ones.
+- ⚠️ **prepwizard drops a `<jobname>-001` working directory into the CURRENT directory.**
+  It holds only `Clean_Up-impref*.maegz` intermediates — the real `_prepared.maegz` goes to the
+  output path you name — but they accumulate fast (48 landed in `/scratch/jem9759` from one
+  24-structure control run, since the loop's cwd was there). `SCHROD_WORK`/`TMPDIR` do **not**
+  redirect them. **`cd` into a scratch dir before running prepwizard**, and sweep `*-001`
+  afterwards. Safe to delete once the `_prepared.maegz` files exist.
+- ⚠️ **`score_peptide.py` writes relaxed PDBs to the CURRENT directory when
+  `--output-relaxed-pdb` is omitted.** The runners `cd` into the BindCraft repo, so strays land
+  in the repo root. Always pass it explicitly.
+- ⚠️ **`score_peptide.py` deletes chains C and D by default** —
+  `sanitize_structure(..., remove_chain_ids=("C","D"))`. Fine for 2-chain KIX+peptide, but a
+  multi-copy cofold (e.g. the dual-face experiment, chains A/B/C) would have its second peptide
+  **silently removed** before scoring. Override `remove_chain_ids` for anything beyond 2 chains.
 - ⚠️ **`score_peptide.py` lives in `KIX_Project/`**, and the BindCraft repo's copy is named
   `score_peptide_copy.py` (byte-identical). `run_bindcraaft_score.sh` `cd`s into the repo and
   calls a bare `score_peptide.py`, which no longer resolves. If you invoke it by absolute path
