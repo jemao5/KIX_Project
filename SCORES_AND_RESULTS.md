@@ -2,7 +2,7 @@
 
 **Status:** ✅ auto-generated from `kix_scoring.py` — formulas are the live definitions, not a transcription. **Regenerate:** `make_score_reference.py`. **Written:** 2026-08-10.
 
-*Companion to `ControlPlan.md`, which holds the findings and the evidence behind every recommendation here. This file is the map: what each score means and which file to open.*
+*Companion to `ControlPlan.md` (findings and evidence) and `DUAL_VS_SINGLE.md` (how the dual binders compare with the single-face binders). This file is the map: what each score means and which file to open.*
 
 ---
 

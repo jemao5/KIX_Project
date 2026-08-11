@@ -70,9 +70,10 @@ def main():
       f"definitions, not a transcription. **Regenerate:** `make_score_reference.py`. "
       f"**Written:** {date.today().isoformat()}.")
     A("")
-    A("*Companion to `ControlPlan.md`, which holds the findings and the evidence "
-      "behind every recommendation here. This file is the map: what each score "
-      "means and which file to open.*")
+    A("*Companion to `ControlPlan.md` (findings and evidence) and "
+      "`DUAL_VS_SINGLE.md` (how the dual binders compare with the single-face "
+      "binders). This file is the map: what each score means and which file to "
+      "open.*")
     A("")
     A("---")
     A("")
