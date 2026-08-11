@@ -80,15 +80,49 @@ def ca_atoms(st, chain):
 
 def superpose_on_chain(ref, mobile, ref_chain, mob_chain):
     """Superpose `mobile` onto `ref` using ONE chain's CA atoms, moving the whole
-    structure. Returns the CA-RMSD over that chain.
+    complex as a single rigid body. Returns the CA-RMSD over that chain.
 
     Used instead of align_many for multi-chain complexes, where the automatic
-    correspondence can latch onto the wrong chain."""
+    correspondence can latch onto the wrong chain.
+
+    ⚠️ move_which=CT is ESSENTIAL. rmsd.superimpose defaults to
+    move_which=MOLECULES (=1), which transforms each molecule INDEPENDENTLY --
+    KIX gets superposed and the peptide is moved separately, destroying the
+    complex geometry. Observed on Full_Library_Hit_10: peptide-KIX mean distance
+    went 19.93 -> 21.93 A and an MLL-face binder was relocated onto the c-Myb
+    face. CT (=2) moves the whole connection table as one rigid body, leaving
+    internal geometry untouched.
+    """
     a_ref, a_mob = ca_atoms(ref, ref_chain), ca_atoms(mobile, mob_chain)
     if len(a_ref) != len(a_mob):
         raise ValueError(f"chain {ref_chain} has {len(a_ref)} CA but mobile "
                          f"chain {mob_chain} has {len(a_mob)} -- cannot pair")
-    return sch_rmsd.superimpose(ref, a_ref, mobile, a_mob)
+    before = _internal_signature(mobile)
+    r = sch_rmsd.superimpose(ref, a_ref, mobile, a_mob, move_which=sch_rmsd.CT)
+    after = _internal_signature(mobile)
+    if before is not None and abs(after - before) > 0.01:
+        raise RuntimeError(
+            f"superposition changed internal geometry ({before:.2f} -> {after:.2f} A) "
+            f"-- this is not a rigid-body move and the output would be wrong")
+    return r
+
+
+def _internal_signature(st):
+    """Mean inter-chain CA distance: invariant under rigid-body motion, so a
+    change proves the transform mangled the complex."""
+    import itertools
+    chains = sorted({a.chain for a in st.atom})
+    if len(chains) < 2:
+        return None
+    ca = {c: [(a.x, a.y, a.z) for a in st.atom
+              if a.chain == c and a.pdbname.strip() == "CA"] for c in chains}
+    tot, n = 0.0, 0
+    for c1, c2 in itertools.combinations(chains, 2):
+        for p in ca[c1]:
+            for q in ca[c2]:
+                tot += ((p[0]-q[0])**2 + (p[1]-q[1])**2 + (p[2]-q[2])**2) ** 0.5
+                n += 1
+    return tot / n if n else None
 
 
 def standardize_his_names(st):
