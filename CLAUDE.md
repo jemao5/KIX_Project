@@ -69,6 +69,7 @@ SLURM account: `torch_pr_149_chemistry`.
 | 9 | Structural face assignment (`face_call`) | `full_library_face_determination.py` | `run_full_library_face_determination.sh` | dssp_env |
 | 10 | Merge + filter + rank | `analyze_and_score_all_metrics.py` | — (run directly) | general |
 | 11 | Align top candidates to `2agh` for viewing | `align_structures.py` | — (run directly) | Schrödinger |
+| 12 | Residue-level interaction maps + ChimeraX figures | `extract_atom_interactions.py`, `make_chimerax_scripts.py` | — (run directly) | Schrödinger / general |
 
 Counting helpers: `get_enrichment_count.py`, `get_aggregate_counts.py` produce the `count`
 (enrichment) column consumed in scoring.
@@ -141,6 +142,117 @@ This is **Schrödinger-specific**: the source Boltz CIF has plain `HIS`, but Sch
 structure is round-tripped through its toolkit. So the rename is only needed because these
 structures pass through Schrödinger's Python here — any stage that writes structures via
 Schrödinger (not just this one) can reintroduce `HID`/`HIE`/`HIP`.
+
+## Residue interaction maps + ChimeraX figures (stage 12)
+
+Presentation prep: *which binder residue touches which KIX residue*, and figures comparing
+that to the 2AGH crystal. Anchored on the **hit-residue sets** (8 c-Myb / 7 MLL) — the same
+residues `hit_num` scores on — so the pictures and the scores describe the same thing.
+
+### The data was already there
+
+The interaction pickles store every contact as a **pair** — `('LYS 21 A', 'SER 4 B')` means
+KIX Lys21 ↔ peptide Ser4 — but `hit_num` only ever consumed `hb[0]`, the KIX side. The peptide
+half sat unused across 30,229 library structures, 24 controls and 172 dual copies.
+
+### ⚠️ KIX numbering differs by 585 between models and crystal
+
+Models number KIX **1–87**; 2AGH numbers it **586–672**. Verified identical sequence, zero
+mismatches, so the offset is exact. Every emitted table carries **both** numbers.
+`crystal_*.cxc` issues `renumber /B start 1` on load (chain B is contiguous, so `start 1` is
+exact) so both panels label the same residue identically.
+Also: chains A and B **both start at residue 1** in the models — ChimeraX selections must be
+chain-qualified (`/A:21`, never `:21`).
+
+### Outputs (`full_library_all_metrics/`)
+
+| File | Rows | What |
+|---|---|---|
+| `residue_interactions.csv` | 106,688 | every H-bond/pi-pi pair, all 30,422 structures |
+| `residue_interactions_by_binder.csv` | 30,422 | one row per structure, contact map as a string |
+| `key_residue_map.csv` | 1,200 | one row per **hit residue** per aligned structure, incl. apolar |
+| `key_residues_top10.csv` | 300 | top 10 per face + top 10 dual (both copies) |
+| `key_residues_native.csv` | 15 | 2AGH ground truth, **same schema** — the comparison file |
+| `atom_level_interactions.csv` | 178 | atom-level pairs for the 42 figure structures |
+
+`native_contact_map.csv` is an earlier H-bond/pi-pi-only intermediate, superseded by
+`key_residues_native.csv` (same schema as the binder tables). Its only unique content is
+contacts to KIX residues *outside* the hit list.
+
+### ⚠️ Do NOT let ChimeraX recompute the interactions
+
+`schrodinger_calc_hbond.find_all_interactions` uses `max_dist=2.8` on the **hydrogen-to-acceptor**
+distance, measured on prepwizard output that HAS hydrogens (≈3.6–3.7 Å donor–acceptor). The
+aligned PDBs written for viewing have **no hydrogens at all** (2AGH has 1,178; the Boltz models
+have 0), so ChimeraX falls back to heavy-atom geometry and disagrees badly. Measured on
+`Full_Library_Hit_1530`: Schrödinger 4 inter-chain H-bonds, ChimeraX **1** — and that one is on
+`LYS82`, not a hit residue. ChimeraX also has **no pi-pi detection at all**, which is most of the
+MLL interface.
+
+So `make_chimerax_scripts.py` emits explicit `pbond` commands from `atom_level_interactions.csv`
+rather than calling `hbonds`. Verified: all 42 scripts match the CSVs exactly, 0 mismatches.
+
+- `extract_atom_interactions.py` re-runs the identical Schrödinger call keeping atom names.
+  Schrödinger returns the donor **hydrogen** (`HH12`, `H1`), which does not exist in the H-free
+  PDBs — `heavy()` resolves it via the real bond graph (`HH12` → `NH1`).
+- Only apolar packing still uses ChimeraX `contacts`: pure heavy-atom proximity, no chemistry
+  criterion to disagree about.
+- ⚠️ `contacts` runs on **ALL** hit residues, not just apolar ones. Scoping it to apolar dropped
+  `TYR65` (44 atom pairs, largest contact on the c-Myb face) and `TYR46` (31 on MLL) — both pack
+  hydrophobically while making no H-bond or stack, so they vanished from every figure.
+- ⚠️ A pseudobond renders only if **both endpoints are displayed**. `pbond`s to non-hit KIX
+  residues are filtered out (they would never draw), and hydrogens are removed with `delete H`
+  **before** `hbonds`-era commands — hiding them afterwards silently killed every line.
+- ⚠️ ChimeraX has no trailing comments: `#` starts a model spec (`#1`), so `cmd  # note` errors
+  with "Expected a keyword". Comments go on their own line.
+
+### Figure bundle (`chimerax_scripts/`, not tracked — regenerate)
+
+`make_chimerax_scripts.py [--base <windows path>]` writes 42 self-contained `.cxc` (top 10 per
+face + top 10 dual + 2 crystal), copies the 31 PDBs into `structures/`, and lists them in
+`OPEN_THESE.txt`. Each starts with `close session`, so pasting the next `open` replaces the last.
+`--base` sets the Windows path — the only machine-specific thing in the bundle.
+
+Legend: **red** = H-bond, **purple** = pi-pi, **orange** = van der Waals packing;
+KIX hit residues **gold** (can H-bond) / **tan** (apolar), binder **blue**.
+
+### Findings
+
+1. **The original hit list is validated by the crystal.** The native peptide contacts **8/8**
+   c-Myb and **7/7** MLL hit residues. But only **2 per face** do so via H-bond/pi-pi — the other
+   13 are pure packing, including the two largest contacts on either face (`TYR65` 44 pairs,
+   `TYR46` 31), both invisible to the original `hit_num`. This is the crystal-side case for
+   `hit_num_v2`, and it is also why re-deriving the list from H-bonds (the rejected `crystal`
+   set) made things worse — see finding 7 above.
+2. **MLL recapitulates the native far better than c-Myb.** Of the native's polar/aromatic
+   partners, MLL binders reproduce **4 of 5** (F27, R39, R83, R86); c-Myb only **2 of 6**
+   (K21, Q76) — the natives anchor via `Lys291→Glu80/Glu81`, which no binder reaches.
+3. **Two hit residues are barely engaged by the designs**: c-Myb `LEU14` (23% of binders) and
+   MLL `LYS71` (17%). `LYS71` is peripheral even in the crystal (5 atom pairs), so only `LEU14`
+   is a real gap — the native does engage it (21 pairs).
+4. ⚠️ **The binders are a different chemotype from the natives, by design and by selection.**
+   The library scaffold is fixed `F-x-G-[6 variable]-[K/R]` (position 1 F **100%**, position 3 G
+   **99%**, position 10 K/R **98%**), and is already 31% aromatic. The scoring pushes survivors
+   to **44–45%**. The c-Myb native contains **zero** aromatic residues; the MLL native, one.
+   So the binders occupy the same pockets by aromatic stacking where the natives use salt
+   bridges. Plausible mechanism: several BindCraft clauses (`interface_dG`, `interface_dSASA`,
+   `interface_nres`) reward buried hydrophobic surface, which aromatics maximise. **Nothing in
+   the pipeline tests specificity against off-target surfaces**, and Trp/Phe-rich 10-mers are the
+   classic profile for nonspecific binding and aggregation — worth raising experimentally.
+   Defensible framing: a 10-mer cannot reproduce a 25–31mer charged interface, so trading salt
+   bridges for aromatic packing is the only route to comparable buried surface at that length.
+5. **`WT_MLL`'s low `hit_num` is a modelling artefact, not a metric ceiling.** Scored under the
+   same rule the crystal native gets `hit_num = 4` / `v2 = 8`; the model gets **0 / 4**. Its
+   global metrics are the *best* of any MLL control (`iptm 0.969`, `dG −59.69`, 9 interface
+   H-bonds) — Boltz found an excellent interface, just misregistered. It reproduces the
+   C-terminal anchors (R83/R86) and misses F27/R39 entirely. Geometry: the native binds at
+   **2.07 Å/residue** (extended/mixed), while an ideal helix is 1.50 — forcing 19 residues into a
+   full helix contracts it ~37 Å → ~27 Å, too short to span the 17.9 Å F27→R86 groove, so one end
+   falls off. Corroborated by its `helix_score` of **0.529**, the lowest of all ten MLL controls
+   (the rest sit at 0.800): Boltz was actively fighting the template and only got halfway.
+   ⚠️ Separately, `hit_num_v2 = 4` for **all ten** MLL controls — the apolar term saturates (only
+   4 apolar hit residues exist) while `hit_num` is 0 for eight of ten, so the metric has *zero*
+   discriminating power on that set. Does not affect the library, where `v2` spans 3–9.
 
 ## Key directories
 

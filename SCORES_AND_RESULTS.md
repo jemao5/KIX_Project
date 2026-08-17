@@ -1,6 +1,6 @@
 # Scores & Results Reference
 
-**Status:** ✅ auto-generated from `kix_scoring.py` — formulas are the live definitions, not a transcription. **Regenerate:** `make_score_reference.py`. **Written:** 2026-08-10.
+**Status:** ✅ auto-generated from `kix_scoring.py` — formulas are the live definitions, not a transcription. **Regenerate:** `make_score_reference.py`. **Written:** 2026-08-16.
 
 *Companion to `ControlPlan.md` (findings and evidence) and `DUAL_VS_SINGLE.md` (how the dual binders compare with the single-face binders). This file is the map: what each score means and which file to open.*
 
@@ -100,8 +100,9 @@ Per-stage inputs, rarely opened directly:
 
 ## Full inventory
 
-**`full_library_all_metrics/`** — 10 files
+**`full_library_all_metrics/`** — 18 files
 
+- `atom_level_interactions.csv` (178 rows)
 - `bindcraft_full_library.csv` (31392 rows)
 - `boltz_metrics_full_library.csv` (31392 rows)
 - `cmyb_candidates.csv` (111 rows)
@@ -111,7 +112,14 @@ Per-stage inputs, rarely opened directly:
 - `hbond_hit_counts.csv` (30776 rows)
 - `hbond_hit_counts_v2.csv` (30776 rows)
 - `hydrophobic_contacts_full_library.tsv` (31392 rows)
+- `key_residue_map.csv` (1200 rows)
+- `key_residues_native.csv` (15 rows)
+- `key_residues_top10.csv` (300 rows)
 - `mll_candidates.csv` (87 rows)
+- `native_contact_map.csv` (15 rows)
+- `residue_interactions.csv` (106688 rows)
+- `residue_interactions_by_binder.csv` (30422 rows)
+- `residue_interactions_presentation.csv` (40 rows)
 
 **`control_run/`** — 22 files
 
@@ -138,7 +146,7 @@ Per-stage inputs, rarely opened directly:
 - `ncaa_smiles.csv` (7 rows)
 - `ncaa_swap_summary.csv` (24 rows)
 
-**`dual_cofold/`** — 17 files
+**`dual_cofold/`** — 18 files
 
 - `copies_bindcraft.csv` (172 rows)
 - `copies_dssp.csv` (172 rows)
@@ -157,4 +165,5 @@ Per-stage inputs, rarely opened directly:
 - `dual_selection.csv` (80 rows)
 - `dual_shortlist.csv` (40 rows)
 - `dual_summary.csv` (86 rows)
+- `dual_vs_single.csv` (40 rows)
 
